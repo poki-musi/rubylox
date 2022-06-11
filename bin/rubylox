@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/rubylox.rb'
+RubyLox::CLI.new {
+  nat "clock" do Time.new.to_f end
+}.main ARGV

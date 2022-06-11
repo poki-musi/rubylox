@@ -1,0 +1,14 @@
+fn counter() {
+    var i = 0;
+    fn call() {
+        i = i + 1;
+        return i;
+    }
+
+    return call;
+}
+
+var i = 0;
+for(var c = counter(); i < 10; i = c()) {
+    print i;
+}

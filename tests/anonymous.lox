@@ -1,0 +1,13 @@
+
+fn rep(n, f) {
+    for(var i = 1; i <= n; i = i + 1)
+        f(i);
+}
+
+fn main() {
+    var x = 0;
+    rep(10, fn (i) { x = x + i; });
+    print x;
+}
+
+main();
