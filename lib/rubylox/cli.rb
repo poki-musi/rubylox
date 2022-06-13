@@ -9,21 +9,33 @@ module RubyLox
     def initialize &block
       @had_error = false
       @had_runtime_err = false
-      @globals = Enviroment.new self
+      @globals = {}
       instance_eval(&block)
     end
 
     def nat name, &block
-      @globals.make_fn name, &block
+      @globals[name] = block
     end
 
-    def err line, msg
-      STDERR.puts "[@#{line}] Error: #{msg}"
+    def make_env
+      Enviroment.new.tap do |env|
+        @globals.each_pair do |name, func|
+          env.make_fn name, &func
+        end
+      end
+    end
+
+    def report line, on, msg
+      STDERR.puts "[@#{line} on '#{on}'] error: #{msg}"
+    end
+
+    def err tkn, msg
+      report tkn.line, (tkn.literal || tkn.type.to_s), msg
       @had_error = true
     end
 
-    def runtime_err line, msg
-      STDERR.puts "[@#{line}] Error: #{msg}"
+    def runtime_err tkn, msg
+      report tkn.line, (tkn.literal || tkn.type.to_s), msg
       @had_runtime_err = true
     end
 
@@ -49,7 +61,7 @@ module RubyLox
     end
 
     def prompt
-      intr = Interpreter.new self
+      intr = Interpreter.new(self, make_env)
       parser = Parser.new(self)
       loop do
         print ">> "
@@ -59,23 +71,25 @@ module RubyLox
         ast = parser.parse(line)
         if !@had_error
           pprint_res intr.interpret(ast)
+          @had_runtime_err = false
         else
           @had_error = false
-          @had_runtime_err = false
         end
       end
     end
 
     def run_file filename
       text = IO.read(filename)
+      intr = Interpreter.new(self, make_env)
       ast = Parser.new(self).parse(text)
       if !@had_error
-        Interpreter.new(self).interpret(ast)
+        intr.interpret(ast)
       end
     end
 
     def pprint_res res
       return if res == :err
+
       if res.nil?
         puts "=> nil"
       else

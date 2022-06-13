@@ -16,7 +16,7 @@ module RubyLox
   For = Struct.new(:init, :cond, :inc, :body)
   Call = Struct.new(:callee, :paren, :args)
   FuncStmt = Struct.new(:name, :params, :body)
-  Return = Struct.new(:expr)
+  Return = Struct.new(:keyword, :expr)
   AnonymFunc = Struct.new(:name, :params, :body)
 
   class Parser
@@ -175,7 +175,7 @@ module RubyLox
         keyword = prev()
         value = !check(:";") && expression() || nil
         consume(:";", "expected ';' after returning values")
-        Return.new value
+        Return.new keyword, value
 
       else
         return expr_stmt()
@@ -386,8 +386,8 @@ module RubyLox
     class ParseError < RuntimeError; end
 
     def err tkn, msg
-      @cli.err tkn.line, msg
-      raise ParseError.new
+      @cli.err tkn, msg
+      raise ParseError
     end
   end
 end
