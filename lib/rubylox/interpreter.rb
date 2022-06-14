@@ -1,56 +1,8 @@
 require_relative './parser.rb'
 require_relative './scope.rb'
+require_relative './objects.rb'
 
 module RubyLox
-  class InterpreterError < RuntimeError; end
-
-  class ReturnValue < RuntimeError
-    attr_accessor :val
-
-    def initialize val
-      super
-      @val = val
-    end
-  end
-
-  module Function
-  end
-
-  class NatFunction < Proc
-    include Function
-
-    def to_s = "<native fn>"
-  end
-
-  class ObjFunction
-    include Function
-
-    def initialize decl, closure = nil
-      @decl = decl
-      @closure = closure
-    end
-
-    def arity = @decl.params.size
-
-    def call intr, args
-      env = Enviroment.new @closure || intr.globals
-      @decl.params.zip(args) do |param, arg|
-        env.make_var param, arg
-      end
-
-      begin
-        intr.eval_block @decl.body, env
-        return nil
-      rescue ReturnValue => e
-        return e.val
-      end
-    end
-
-    def to_s
-      "<fn #{@decl.name.literal}>"
-    end
-  end
-
   class Interpreter
     attr_reader :cli
     attr_accessor :env, :globals
@@ -223,6 +175,23 @@ module RubyLox
 
         return callee.call self, args
 
+      when Get
+        obj = evaluate ast.object
+        err ast.name, "only instances have properties" if !obj.is_a?(LoxInstance)
+        res = obj[ast.name.literal]
+        err ast.name, "undefined property '#{ast.name.literal}'" if res.nil?
+        return res == :nil ? nil : res
+
+      when Set
+        obj = evaluate ast.object
+        err ast.name, "only instances have properties" if !obj.is_a?(LoxInstance)
+        value = evaluate ast.value
+        obj[ast.name] = value
+        return value
+
+      when This
+        return lookup_variable ast.keyword, ast
+
       when FuncStmt
         if @globals.eql? @env
           func = ObjFunction.new ast
@@ -241,6 +210,17 @@ module RubyLox
 
       when Return
         raise ReturnValue.new(evaluate ast.expr)
+
+      when Klass
+        @env.make_var ast.name, nil
+
+        methods = ast.lox_methods.map do |met|
+          [met.name.literal, ObjFunction.new(met, @env, met.name.literal == "init")]
+        end.to_h
+        klass = LoxKlass.new(ast.name.literal, methods)
+
+        @env[ast.name] = klass
+        return nil
       end
     end
 

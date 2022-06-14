@@ -18,6 +18,10 @@ module RubyLox
   FuncStmt = Struct.new(:name, :params, :body)
   Return = Struct.new(:keyword, :expr)
   AnonymFunc = Struct.new(:name, :params, :body)
+  Klass = Struct.new(:name, :lox_methods)
+  Get = Struct.new(:object, :name)
+  Set = Struct.new(:object, :name, :value)
+  This = Struct.new(:keyword)
 
   class Parser
     attr_accessor :tokens
@@ -57,6 +61,7 @@ module RubyLox
 
     def decl
       begin
+        return class_decl() if match(:class)
         return var_decl() if match(:var)
 
         if (fn = match(:fn))
@@ -206,9 +211,11 @@ module RubyLox
         eq = prev()
         value = assignment()
 
-        if expr.is_a? Variable
-          name = expr.name
-          return Assignment.new(name, value)
+        case expr
+        when Variable
+          return Assignment.new(expr.name, value)
+        when Get
+          return Set.new(expr.object, expr.name, value)
         end
 
         err eq, "invalid assignment target"
@@ -299,7 +306,16 @@ module RubyLox
 
     def call_item
       callee = primary()
-      callee = finish_call(callee) while match(:"(")
+      while true
+        if match(:"(")
+          callee = finish_call(callee)
+        elsif match(:".")
+          name = consume(:id, "expected property name after '.'")
+          callee = Get.new(callee, name)
+        else
+          break
+        end
+      end
       callee
     end
 
@@ -320,6 +336,10 @@ module RubyLox
 
     def primary
       case
+      when match(:this)
+        tkn = prev()
+        tkn.literal = "this"
+        return This.new(tkn)
       when match(:"false") then Literal.new(false)
       when match(:"true") then Literal.new(true)
       when match(:nil) then Literal.new(nil)
@@ -339,6 +359,22 @@ module RubyLox
       else
         err current(), "expected expression"
       end
+    end
+
+    def class_decl
+      name = consume(:id, "expected class name")
+      consume(:"{", "expected '{' before class body")
+
+      methods = []
+      while !check(:"}") && !at_end
+        met_name = consume(:id, "expected name of method")
+        params, body = fn_decl(met_name)
+        methods << FuncStmt.new(met_name, params, body)
+      end
+
+      consume(:"}", "expected '}' after class body")
+
+      return Klass.new(name, methods)
     end
 
     #

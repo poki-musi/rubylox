@@ -1,0 +1,33 @@
+class Bar {
+    eat() {
+        print "om nom nom nom";
+    }
+
+    eatnt() {
+        print "no more nom noms :>";
+    }
+
+    speak() {
+        print this;
+    }
+
+    init() {
+        this.hello = 2;
+        this.bye = "hello";
+        var x = 0;
+        this.whop = fn() { print x; };
+    }
+}
+
+print Bar;
+print Bar();
+
+var bar = Bar();
+
+Bar().eat();
+Bar().eatnt();
+print bar.hello;
+print bar.bye;
+bar.whop();
+
+Bar().speak();

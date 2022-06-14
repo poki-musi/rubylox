@@ -71,6 +71,7 @@ module RubyLox
       @interpreter = interpreter
       @scopes = []
       @cur_function = nil
+      @cur_klass = nil
     end
 
     def err tkn, msg
@@ -85,6 +86,14 @@ module RubyLox
 
     def resolve ast
       case ast
+      when This
+        err ast.keyword, "can't use 'this' outside of a class" if !@cur_klass
+
+        resolve_local ast, ast.keyword
+
+      when Get
+        resolve ast.object
+
       when Block
         begin_scope
         ast.stmts.each do resolve _1 end
@@ -107,6 +116,10 @@ module RubyLox
         define ast.name
 
         resolve_function ast, :function
+
+      when Set
+        resolve ast.value
+        resolve ast.object
 
       when AnonymFunc
         resolve_function ast, :function
@@ -142,6 +155,10 @@ module RubyLox
           err ast.keyword, "can't return from top-level code"
         end
 
+        if @cur_function == :init && ast.expr
+          err ast.keyword, "can't return from an initializer"
+        end
+
         resolve ast.expr
 
       when While
@@ -171,6 +188,23 @@ module RubyLox
 
       when Unary
         resolve ast.val
+
+      when Klass
+        enclosing = @cur_klass
+        @cur_klass = :class
+
+        declare ast.name
+        define ast.name
+
+        begin_scope
+        @scopes.last["this"] = true
+
+        ast.lox_methods.each do |met|
+          resolve_function met, met.name.literal == "init" ? :init : :method
+        end
+
+        end_scope
+        @cur_klass = enclosing
       else
       end
       return
